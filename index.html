@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Space Invaders Clone</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      border: 2px solid white;
+      background: black;
+    }
+    #scoreboard {
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="scoreboard">
+    <div id="score">Score: 0</div>
+    <div id="level">Level: 1</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const shipImg = new Image(); shipImg.src = 'ship.png';
+    const laserImg = new Image(); laserImg.src = 'laser.png';
+    const enemyImgs = [
+      Object.assign(new Image(), { src: 'enemy1.png' }),
+      Object.assign(new Image(), { src: 'enemy2.png' }),
+      Object.assign(new Image(), { src: 'enemy3.png' })
+    ];
+    const bossImg = new Image(); bossImg.src = 'boss.png';
+
+    const laserSound = new Audio('laser.wav');
+    laserSound.volume = 0.5;
+
+    const ship = { x: 375, y: 540, width: 50, height: 40, speed: 5 };
+    let lasers = [], enemyLasers = [], enemies = [], boss = null;
+    let canShoot = true, score = 0, level = 1;
+
+    const keys = {};
+    document.addEventListener('keydown', e => keys[e.code] = true);
+    document.addEventListener('keyup', e => keys[e.code] = false);
+
+    function createEnemies() {
+      enemies = [];
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 10; col++) {
+          enemies.push({
+            x: 80 + col * 60,
+            y: 50 + row * 50,
+            width: 40,
+            height: 40,
+            dx: 1,
+            alive: true,
+            sprite: enemyImgs[Math.floor(Math.random() * enemyImgs.length)]
+          });
+        }
+      }
+    }
+
+    function spawnBoss() {
+      boss = {
+        x: canvas.width / 2 - 75,
+        y: 50,
+        width: 150,
+        height: 100,
+        dx: 2,
+        alive: true,
+        cooldown: 100,
+        hp: 10
+      };
+    }
+
+    function shootLaser() {
+      if (canShoot) {
+        lasers.push({
+          x: ship.x + ship.width / 2 - 2.5,
+          y: ship.y,
+          width: 20,
+          height: 40,
+          speed: 8
+        });
+        laserSound.currentTime = 0;
+        laserSound.play();
+        canShoot = false;
+        setTimeout(() => canShoot = true, 500);
+      }
+    }
+
+    function updateEnemies() {
+      let shift = false;
+      enemies.forEach(enemy => {
+        if (!enemy.alive) return;
+        enemy.x += enemy.dx;
+        if (enemy.x + enemy.width > canvas.width || enemy.x < 0) {
+          shift = true;
+        }
+      });
+      if (shift) {
+        enemies.forEach(enemy => {
+          enemy.dx *= -1;
+          enemy.y += 10;
+        });
+      }
+    }
+
+    function updateBoss() {
+      if (!boss || !boss.alive) return;
+      boss.x += boss.dx;
+      if (boss.x <= 0 || boss.x + boss.width >= canvas.width) {
+        boss.dx *= -1;
+      }
+
+      boss.cooldown--;
+      if (boss.cooldown <= 0) {
+        enemyLasers.push({
+          x: boss.x + boss.width / 2 - 2.5,
+          y: boss.y + boss.height,
+          width: 5,
+          height: 15,
+          speed: 5
+        });
+        boss.cooldown = 80;
+      }
+    }
+
+    function updateLasers() {
+      lasers.forEach((laser, i) => {
+        laser.y -= laser.speed;
+        if (laser.y < 0) lasers.splice(i, 1);
+
+        enemies.forEach(enemy => {
+          if (
+            enemy.alive &&
+            laser.x < enemy.x + enemy.width &&
+            laser.x + laser.width > enemy.x &&
+            laser.y < enemy.y + enemy.height &&
+            laser.y + laser.height > enemy.y
+          ) {
+            enemy.alive = false;
+            lasers.splice(i, 1);
+            score += 10;
+            document.getElementById('score').textContent = `Score: ${score}`;
+          }
+        });
+
+        if (
+          boss &&
+          boss.alive &&
+          laser.x < boss.x + boss.width &&
+          laser.x + laser.width > boss.x &&
+          laser.y < boss.y + boss.height &&
+          laser.y + laser.height > boss.y
+        ) {
+          boss.hp--;
+          lasers.splice(i, 1);
+          if (boss.hp <= 0) {
+            boss.alive = false;
+            score += 100;
+            document.getElementById('score').textContent = `Score: ${score}`;
+          }
+        }
+      });
+
+      enemyLasers.forEach((laser, i) => {
+        laser.y += laser.speed;
+        if (laser.y > canvas.height) enemyLasers.splice(i, 1);
+
+        if (
+          laser.x < ship.x + ship.width &&
+          laser.x + laser.width > ship.x &&
+          laser.y < ship.y + ship.height &&
+          laser.y + laser.height > ship.y
+        ) {
+          alert("Game Over!");
+          document.location.reload();
+        }
+      });
+    }
+
+    function drawEntities() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(shipImg, ship.x, ship.y, ship.width, ship.height);
+
+      lasers.forEach(laser => {
+        ctx.drawImage(laserImg, laser.x, laser.y, laser.width, laser.height);
+      });
+
+      enemies.forEach(enemy => {
+        if (enemy.alive) {
+          ctx.drawImage(enemy.sprite, enemy.x, enemy.y, enemy.width, enemy.height);
+        }
+      });
+
+      if (boss && boss.alive) {
+        ctx.drawImage(bossImg, boss.x, boss.y, boss.width, boss.height);
+      }
+
+      enemyLasers.forEach(laser => {
+        ctx.fillStyle = "red";
+        ctx.fillRect(laser.x, laser.y, laser.width, laser.height);
+      });
+    }
+
+    function gameLoop() {
+      if (keys['ArrowLeft'] && ship.x > 0) ship.x -= ship.speed;
+      if (keys['ArrowRight'] && ship.x + ship.width < canvas.width) ship.x += ship.speed;
+      if (keys['Space']) shootLaser();
+
+      if (level === 1 && enemies.every(e => !e.alive)) {
+        level = 2;
+        document.getElementById('level').textContent = `Level: ${level}`;
+        spawnBoss();
+      }
+
+      updateEnemies();
+      updateBoss();
+      updateLasers();
+      drawEntities();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    createEnemies();
+    gameLoop();
+  </script>
+</body>
+</html>
