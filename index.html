@@ -3,23 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SESI 101 ATACA</title>
+  <title>Space Invaders Mobile</title>
   <style>
     body {
       margin: 0;
       background: black;
       color: white;
       font-family: sans-serif;
+      overflow: hidden;
     }
     canvas {
       display: block;
       margin: 0 auto;
-      border: 2px solid white;
       background: black;
     }
     #scoreboard {
       text-align: center;
-      margin-top: 10px;
+      margin: 10px 0;
+    }
+    #controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-around;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      z-index: 100;
+    }
+    .btn {
+      background: #222;
+      color: white;
+      border: 2px solid white;
+      border-radius: 8px;
+      font-size: 18px;
+      padding: 10px 20px;
+      flex: 1;
+      margin: 0 5px;
+      touch-action: manipulation;
     }
   </style>
 </head>
@@ -28,6 +50,13 @@
   <div id="scoreboard">
     <div id="score">Score: 0</div>
     <div id="level">Level: 1</div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="controls">
+    <button class="btn" id="leftBtn">◀</button>
+    <button class="btn" id="shootBtn">⦿</button>
+    <button class="btn" id="rightBtn">▶</button>
   </div>
 
   <script>
@@ -53,6 +82,19 @@
     const keys = {};
     document.addEventListener('keydown', e => keys[e.code] = true);
     document.addEventListener('keyup', e => keys[e.code] = false);
+
+    // Mobile Controls
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const shootBtn = document.getElementById('shootBtn');
+    let leftPressed = false;
+    let rightPressed = false;
+
+    leftBtn.ontouchstart = () => leftPressed = true;
+    leftBtn.ontouchend = () => leftPressed = false;
+    rightBtn.ontouchstart = () => rightPressed = true;
+    rightBtn.ontouchend = () => rightPressed = false;
+    shootBtn.ontouchstart = () => shootLaser();
 
     function createEnemies() {
       enemies = [];
@@ -89,8 +131,8 @@
         lasers.push({
           x: ship.x + ship.width / 2 - 2.5,
           y: ship.y,
-          width: 20,
-          height: 40,
+          width: 5,
+          height: 20,
           speed: 8
         });
         laserSound.currentTime = 0;
@@ -194,21 +236,17 @@
     function drawEntities() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(shipImg, ship.x, ship.y, ship.width, ship.height);
-
       lasers.forEach(laser => {
         ctx.drawImage(laserImg, laser.x, laser.y, laser.width, laser.height);
       });
-
       enemies.forEach(enemy => {
         if (enemy.alive) {
           ctx.drawImage(enemy.sprite, enemy.x, enemy.y, enemy.width, enemy.height);
         }
       });
-
       if (boss && boss.alive) {
         ctx.drawImage(bossImg, boss.x, boss.y, boss.width, boss.height);
       }
-
       enemyLasers.forEach(laser => {
         ctx.fillStyle = "red";
         ctx.fillRect(laser.x, laser.y, laser.width, laser.height);
@@ -216,9 +254,11 @@
     }
 
     function gameLoop() {
-      if (keys['ArrowLeft'] && ship.x > 0) ship.x -= ship.speed;
-      if (keys['ArrowRight'] && ship.x + ship.width < canvas.width) ship.x += ship.speed;
+      if (keys['ArrowLeft'] || leftPressed) ship.x -= ship.speed;
+      if (keys['ArrowRight'] || rightPressed) ship.x += ship.speed;
       if (keys['Space']) shootLaser();
+
+      ship.x = Math.max(0, Math.min(canvas.width - ship.width, ship.x));
 
       if (level === 1 && enemies.every(e => !e.alive)) {
         level = 2;
@@ -230,7 +270,6 @@
       updateBoss();
       updateLasers();
       drawEntities();
-
       requestAnimationFrame(gameLoop);
     }
 
