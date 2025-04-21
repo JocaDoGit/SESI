@@ -3,109 +3,100 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Space Invaders Mobile</title>
+  <title>SESI ATACA Mobile</title>
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
       background: black;
-      color: white;
-      font-family: sans-serif;
       overflow: hidden;
+      height: 100%;
+      touch-action: none;
     }
     canvas {
       display: block;
-      margin: 0 auto;
+      width: 100vw;
+      height: 100vh;
       background: black;
     }
-    #scoreboard {
-      text-align: center;
-      margin: 10px 0;
-    }
-    #controls {
+    #hud {
       position: fixed;
-      bottom: 0;
+      top: 10px;
       left: 0;
       right: 0;
-      display: flex;
-      justify-content: space-around;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 10px;
-      z-index: 100;
-    }
-    .btn {
-      background: #222;
+      text-align: center;
       color: white;
-      border: 2px solid white;
-      border-radius: 8px;
-      font-size: 18px;
-      padding: 10px 20px;
-      flex: 1;
-      margin: 0 5px;
-      touch-action: manipulation;
+      font-family: sans-serif;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
-  <div id="scoreboard">
+  <canvas id="gameCanvas"></canvas>
+  <div id="hud">
     <div id="score">Score: 0</div>
     <div id="level">Level: 1</div>
-  </div>
-
-  <!-- Mobile Controls -->
-  <div id="controls">
-    <button class="btn" id="leftBtn">◀</button>
-    <button class="btn" id="shootBtn">⦿</button>
-    <button class="btn" id="rightBtn">▶</button>
   </div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    // Resize to fit screen
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Load assets
     const shipImg = new Image(); shipImg.src = 'ship.png';
     const laserImg = new Image(); laserImg.src = 'laser.png';
-    const enemyImgs = [
-      Object.assign(new Image(), { src: 'enemy1.png' }),
-      Object.assign(new Image(), { src: 'enemy2.png' }),
-      Object.assign(new Image(), { src: 'enemy3.png' })
-    ];
     const bossImg = new Image(); bossImg.src = 'boss.png';
+    const enemyImgs = ['enemy1.png', 'enemy2.png', 'enemy3.png'].map(src => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
 
     const laserSound = new Audio('laser.wav');
-    laserSound.volume = 0.5;
+    laserSound.volume = 0.4;
 
-    const ship = { x: 375, y: 540, width: 50, height: 40, speed: 5 };
+    // Game variables
+    let ship = { x: canvas.width / 2 - 25, y: canvas.height - 80, width: 50, height: 50, speed: 7 };
     let lasers = [], enemyLasers = [], enemies = [], boss = null;
     let canShoot = true, score = 0, level = 1;
 
-    const keys = {};
-    document.addEventListener('keydown', e => keys[e.code] = true);
-    document.addEventListener('keyup', e => keys[e.code] = false);
-
-    // Mobile Controls
-    const leftBtn = document.getElementById('leftBtn');
-    const rightBtn = document.getElementById('rightBtn');
-    const shootBtn = document.getElementById('shootBtn');
-    let leftPressed = false;
-    let rightPressed = false;
-
-    leftBtn.ontouchstart = () => leftPressed = true;
-    leftBtn.ontouchend = () => leftPressed = false;
-    rightBtn.ontouchstart = () => rightPressed = true;
-    rightBtn.ontouchend = () => rightPressed = false;
-    shootBtn.ontouchstart = () => shootLaser();
+    function shootLaser() {
+      if (canShoot) {
+        lasers.push({
+          x: ship.x + ship.width / 2 - 2.5,
+          y: ship.y,
+          width: 5,
+          height: 20,
+          speed: 10
+        });
+        laserSound.currentTime = 0;
+        laserSound.play();
+        canShoot = false;
+        setTimeout(() => canShoot = true, 500);
+      }
+    }
 
     function createEnemies() {
       enemies = [];
-      for (let row = 0; row < 4; row++) {
-        for (let col = 0; col < 10; col++) {
+      const cols = 10, rows = 4;
+      const margin = 40;
+      const spacingX = (canvas.width - 2 * margin) / cols;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
           enemies.push({
-            x: 80 + col * 60,
-            y: 50 + row * 50,
+            x: margin + c * spacingX,
+            y: 50 + r * 50,
             width: 40,
             height: 40,
-            dx: 1,
+            dx: 1.5,
             alive: true,
             sprite: enemyImgs[Math.floor(Math.random() * enemyImgs.length)]
           });
@@ -124,22 +115,6 @@
         cooldown: 100,
         hp: 10
       };
-    }
-
-    function shootLaser() {
-      if (canShoot) {
-        lasers.push({
-          x: ship.x + ship.width / 2 - 2.5,
-          y: ship.y,
-          width: 5,
-          height: 20,
-          speed: 8
-        });
-        laserSound.currentTime = 0;
-        laserSound.play();
-        canShoot = false;
-        setTimeout(() => canShoot = true, 500);
-      }
     }
 
     function updateEnemies() {
@@ -165,7 +140,6 @@
       if (boss.x <= 0 || boss.x + boss.width >= canvas.width) {
         boss.dx *= -1;
       }
-
       boss.cooldown--;
       if (boss.cooldown <= 0) {
         enemyLasers.push({
@@ -211,7 +185,7 @@
           lasers.splice(i, 1);
           if (boss.hp <= 0) {
             boss.alive = false;
-            score += 100;
+            score += 200;
             document.getElementById('score').textContent = `Score: ${score}`;
           }
         }
@@ -228,7 +202,7 @@
           laser.y + laser.height > ship.y
         ) {
           alert("Game Over!");
-          document.location.reload();
+          location.reload();
         }
       });
     }
@@ -236,30 +210,37 @@
     function drawEntities() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(shipImg, ship.x, ship.y, ship.width, ship.height);
-      lasers.forEach(laser => {
-        ctx.drawImage(laserImg, laser.x, laser.y, laser.width, laser.height);
+      lasers.forEach(l => ctx.drawImage(laserImg, l.x, l.y, l.width, l.height));
+      enemyLasers.forEach(l => {
+        ctx.fillStyle = "red";
+        ctx.fillRect(l.x, l.y, l.width, l.height);
       });
-      enemies.forEach(enemy => {
-        if (enemy.alive) {
-          ctx.drawImage(enemy.sprite, enemy.x, enemy.y, enemy.width, enemy.height);
-        }
+      enemies.forEach(e => {
+        if (e.alive) ctx.drawImage(e.sprite, e.x, e.y, e.width, e.height);
       });
       if (boss && boss.alive) {
         ctx.drawImage(bossImg, boss.x, boss.y, boss.width, boss.height);
       }
-      enemyLasers.forEach(laser => {
-        ctx.fillStyle = "red";
-        ctx.fillRect(laser.x, laser.y, laser.width, laser.height);
-      });
     }
 
-    function gameLoop() {
-      if (keys['ArrowLeft'] || leftPressed) ship.x -= ship.speed;
-      if (keys['ArrowRight'] || rightPressed) ship.x += ship.speed;
-      if (keys['Space']) shootLaser();
+    // Touch controls
+    let touchX = null;
 
+    canvas.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      touchX = touch.clientX;
+      shootLaser();
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - touchX;
+      ship.x += deltaX;
       ship.x = Math.max(0, Math.min(canvas.width - ship.width, ship.x));
+      touchX = touch.clientX;
+    });
 
+    function gameLoop() {
       if (level === 1 && enemies.every(e => !e.alive)) {
         level = 2;
         document.getElementById('level').textContent = `Level: ${level}`;
